@@ -1,52 +1,50 @@
 package wtsang01.simplefitness;
 
+import android.app.ActivityManager;
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.text.Html;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
+import android.widget.Button;
+import android.widget.TextView;
+
+import wtsang01.simplefitness.data.WTUserDAO;
+import wtsang01.simplefitness.process.WTFitnessLocationService;
+import wtsang01.simplefitness.view.WTLeaderBoard;
+import wtsang01.util.WTLogger;
+
+import static com.google.android.gms.analytics.internal.zzy.m;
+import static com.google.android.gms.analytics.internal.zzy.n;
 
 
-/**
- * A simple {@link Fragment} subclass.
- * Activities that contain this fragment must implement the
- * {@link WTFitnessFragment.OnFragmentInteractionListener} interface
- * to handle interaction events.
- * Use the {@link WTFitnessFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
 public class WTFitnessFragment extends Fragment {
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    public static final String TAG = WTFitnessFragment.class.getSimpleName();
+    public static final String USER_ID_EXTRA = "userID";
+    private int mUserID;
+    private TextView mServiceStatus;
+    private Button mServiceAction;
+    private TextView mFitnessSummary;
+    private Button mLogoutBt;
+    protected WTUserDAO mUserDAO;
+    private WTLeaderBoard mLeaderBoard;
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
-    private OnFragmentInteractionListener mListener;
+    private OnLogoutListener mListener;
 
     public WTFitnessFragment() {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment WTFitnessFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static WTFitnessFragment newInstance(String param1, String param2) {
+
+    public static WTFitnessFragment newInstance(int userID) {
         WTFitnessFragment fragment = new WTFitnessFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putInt(USER_ID_EXTRA, userID);
         fragment.setArguments(args);
         return fragment;
     }
@@ -55,33 +53,102 @@ public class WTFitnessFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+            mUserID = getArguments().getInt(USER_ID_EXTRA);
+        }
+        mUserDAO = new WTUserDAO(getContext());
+        WTLogger.l(mUserDAO.getFeetWalkToday(mUserID));
+    }
+    private boolean isServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getActivity().getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+    public boolean isFitnessLocationServiceRunning(){
+        return isServiceRunning(WTFitnessLocationService.class);
+    }
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_fitness, container, false);
+        mServiceStatus = (TextView) view.findViewById(R.id.tv_service_status);
+        mServiceAction = (Button) view.findViewById(R.id.bt_service_action);
+
+        mServiceAction.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+                final Intent intent= new Intent(getContext(), WTFitnessLocationService.class);
+                intent.putExtra(USER_ID_EXTRA,mUserID);
+                if(isFitnessLocationServiceRunning()){
+                    WTLogger.l("STOPPING SERVICE");
+                    getActivity().stopService(intent);
+                }else{
+                    WTLogger.l("STARTING SERVICE");
+                    getActivity().startService(intent);
+
+                }
+                refreshServiceStatus();
+            }
+        });
+        if(mLeaderBoard == null){
+          mLeaderBoard = new WTLeaderBoard(getContext(),(WebView) view.findViewById(R.id.wv_fitness_board));
+        }
+        mFitnessSummary = (TextView) view.findViewById(R.id.tv_fitness_summary);
+        mLogoutBt = (Button) view.findViewById(R.id.bt_logout);
+        mLogoutBt.setText("Logout");
+        mLogoutBt.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+                if(isFitnessLocationServiceRunning()) {
+                    WTLogger.l("STOPPING SERVICE");
+                    final Intent intent = new Intent(getContext(), WTFitnessLocationService.class);
+                    getActivity().stopService(intent);
+
+                }
+                mListener.onLogout();
+            }
+        });
+        return view;
+    }
+    private void refreshServiceStatus(){
+        if(mServiceStatus != null){
+            mServiceStatus.setText("Welcome "+mUserDAO.getUserEmail(mUserID)+"\n Service is: "+(isFitnessLocationServiceRunning()? "Running":"Stopped"));
+        }
+        if(mServiceAction != null) {
+            mServiceAction.setText("Click to "+(isFitnessLocationServiceRunning()? "STOP":"START"));
+
         }
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_fitness, container, false);
+    public void onResume() {
+        super.onResume();
+        if(mLeaderBoard!=null){
+            mLeaderBoard.refreshView();
+        }
+        refreshServiceStatus();
+        refreshSummary();
     }
 
-    // TODO: Rename method, update argument and hook method into UI event
-    public void onButtonPressed(Uri uri) {
-        if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
-        }
+    private void refreshSummary() {
+
+        mFitnessSummary.setText("For the past 24 hrs, you've walked "
+                +Float.toString(mUserDAO.getFeetWalkToday(mUserID))
+                +" FEET! \r\n"
+        );
     }
+
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        if (context instanceof OnFragmentInteractionListener) {
-            mListener = (OnFragmentInteractionListener) context;
+        if (context instanceof OnLogoutListener) {
+            mListener = (OnLogoutListener) context;
         } else {
-            throw new RuntimeException(context.toString()
-                    + " must implement OnFragmentInteractionListener");
+
         }
     }
 
@@ -91,18 +158,8 @@ public class WTFitnessFragment extends Fragment {
         mListener = null;
     }
 
-    /**
-     * This interface must be implemented by activities that contain this
-     * fragment to allow an interaction in this fragment to be communicated
-     * to the activity and potentially other fragments contained in that
-     * activity.
-     * <p>
-     * See the Android Training lesson <a href=
-     * "http://developer.android.com/training/basics/fragments/communicating.html"
-     * >Communicating with Other Fragments</a> for more information.
-     */
-    public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
-        void onFragmentInteraction(Uri uri);
+
+    public interface OnLogoutListener {
+        void onLogout();
     }
 }

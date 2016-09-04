@@ -31,29 +31,26 @@ import com.google.android.gms.plus.PlusOneButton;
 import java.util.ArrayList;
 import java.util.List;
 
+import wtsang01.simplefitness.data.WTFitnessDAO;
 import wtsang01.simplefitness.data.WTSimpleFitnessDbHelper;
+import wtsang01.simplefitness.data.WTUserDAO;
+import wtsang01.simplefitness.mock.WTAuthentication;
+import wtsang01.util.WTLogger;
+
+import static com.google.android.gms.analytics.internal.zzy.e;
+import static wtsang01.simplefitness.R.id.login;
 
 /**
  * A fragment with a Google +1 button.
  * Activities that contain this fragment must implement the
- * {@link WTLoginFragment.OnFragmentInteractionListener} interface
+ * {@link WTLoginFragment.OnFragmentLoginSuccessListener} interface
  * to handle interaction events.
  * Use the {@link WTLoginFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
 public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor> {
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-    // The request code must be 0 or greater.
-    private static final int PLUS_ONE_REQUEST_CODE = 0;
-    // The URL to +1.  Must be a valid URL.
-    private final String PLUS_ONE_URL = "http://developer.android.com";
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
+    public static final String TAG = WTLoginFragment.class.getSimpleName();
+    WTUserDAO userDao;
 
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -63,41 +60,23 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
     // UI references.
     private AutoCompleteTextView mEmailView;
     private EditText mPasswordView;
-    private View mProgressView;
-    private View mLoginFormView;
 
 
-    private OnFragmentInteractionListener mListener;
+    private OnFragmentLoginSuccessListener mListener;
 
     public WTLoginFragment() {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment WTLoginFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static WTLoginFragment newInstance(String param1, String param2) {
-        WTLoginFragment fragment = new WTLoginFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
+
+    public static WTLoginFragment newInstance() {
+        return new WTLoginFragment();
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
+
 
     }
 
@@ -110,12 +89,11 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
         // Set up the login form.
         mEmailView = (AutoCompleteTextView) view.findViewById(R.id.email);
         populateAutoComplete();
-
         mPasswordView = (EditText) view.findViewById(R.id.password);
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
-                if (id == R.id.login || id == EditorInfo.IME_NULL) {
+                if (id == login || id == EditorInfo.IME_NULL) {
                     attemptLogin();
                     return true;
                 }
@@ -129,31 +107,21 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
                 attemptLogin();
             }
         });
-        mLoginFormView = view.findViewById(R.id.login_form);
-        mProgressView = view.findViewById(R.id.login_progress);
+
         return view;
     }
 
     @Override
     public void onResume() {
         super.onResume();
-
-        // Refresh the state of the +1 button each time the activity receives focus.
-        //mPlusOneButton.initialize(PLUS_ONE_URL, PLUS_ONE_REQUEST_CODE);
     }
 
-    // TODO: Rename method, update argument and hook method into UI event
-    public void onButtonPressed(Uri uri) {
-        if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
-        }
-    }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        if (context instanceof OnFragmentInteractionListener) {
-            mListener = (OnFragmentInteractionListener) context;
+        if (context instanceof OnFragmentLoginSuccessListener) {
+            mListener = (OnFragmentLoginSuccessListener) context;
         } else {
             throw new RuntimeException(context.toString()
                     + " must implement OnFragmentInteractionListener");
@@ -176,16 +144,15 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
      * "http://developer.android.com/training/basics/fragments/communicating.html"
      * >Communicating with Other Fragments</a> for more information.
      */
-    public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
-        void onFragmentInteraction(Uri uri);
+    public interface OnFragmentLoginSuccessListener {
+        void onLoginSuccess(int userID);
     }
 
     /**
      * MOCK this list should be retrieved somewhere else.
      */
     private void populateAutoComplete() {
-        mEmailView.setAdapter(new ArrayAdapter<String>(this.getContext(),android.R.layout.simple_list_item_1, new String[]{"wtsang01@gmail.com","wtsang02@nyit.edu"}));
+        mEmailView.setAdapter(new ArrayAdapter<String>(this.getContext(), android.R.layout.simple_list_item_1, new String[]{"wtsang01@gmail.com", "wtsang02@nyit.edu"}));
     }
 
 
@@ -235,57 +202,23 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
         } else {
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
-            showProgress(true);
+
             mAuthTask = new UserLoginTask(email, password);
             mAuthTask.execute((Void) null);
         }
     }
 
+
     private boolean isEmailValid(String email) {
-        //TODO: Replace this with your own logic
         return email.contains("@");
     }
 
     private boolean isPasswordValid(String password) {
-        //TODO: Replace this with your own logic
-        return password.length() > 4;
+        return password.length() > 2;
     }
 
-    /**
-     * Shows the progress UI and hides the login form.
-     */
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-    private void showProgress(final boolean show) {
-        // On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
-        // for very easy animations. If available, use these APIs to fade-in
-        // the progress spinner.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
 
-            mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-            mLoginFormView.animate().setDuration(shortAnimTime).alpha(
-                    show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-                }
-            });
 
-            mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-            mProgressView.animate().setDuration(shortAnimTime).alpha(
-                    show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-                }
-            });
-        } else {
-            // The ViewPropertyAnimator APIs are not available, so simply show
-            // and hide the relevant UI components.
-            mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-            mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-        }
-    }
 
     @Override
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
@@ -313,7 +246,6 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
             cursor.moveToNext();
         }
 
-        addEmailsToAutoComplete(emails);
     }
 
     @Override
@@ -332,15 +264,6 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
     }
 
 
-    private void addEmailsToAutoComplete(List<String> emailAddressCollection) {
-        //Create adapter to tell the AutoCompleteTextView what to show in its dropdown list.
-        ArrayAdapter<String> adapter =
-                new ArrayAdapter<>(this.getContext(),
-                        android.R.layout.simple_dropdown_item_1line, emailAddressCollection);
-
-        mEmailView.setAdapter(adapter);
-    }
-
     /**
      * Represents an asynchronous login/registration task used to authenticate
      * the user.
@@ -357,36 +280,21 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
 
         @Override
         protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
-
-            try {
-                // Simulate network access.
-                Thread.sleep(2000);
-
-                new WTSimpleFitnessDbHelper(WTLoginFragment.this.getContext());
-            } catch (InterruptedException e) {
-                return false;
-            }
-
-            for (String credential : new String[]{}) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mEmail)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
+                System.out.println("Trying to login.");
+                if (userDao == null) {
+                    userDao = new WTUserDAO(getContext());
                 }
-            }
-
-            // TODO: register the new account here.
-            return true;
+            return userDao.login(mEmail,mPassword);
         }
 
         @Override
         protected void onPostExecute(final Boolean success) {
             mAuthTask = null;
-            showProgress(false);
 
             if (success) {
-
+                WTLogger.l("Logged in :)");
+                userDao.getFeetWalkToday(userDao.getUserId(mEmail));
+                mListener.onLoginSuccess(userDao.getUserId(mEmail));
             } else {
                 mPasswordView.setError(getString(R.string.error_incorrect_password));
                 mPasswordView.requestFocus();
@@ -396,7 +304,16 @@ public class WTLoginFragment extends Fragment implements LoaderManager.LoaderCal
         @Override
         protected void onCancelled() {
             mAuthTask = null;
-            showProgress(false);
+
         }
+    }
+
+    /**
+     * should check for null
+     *
+     * @return
+     */
+    private String getCurrentUserEmail() {
+        return mEmailView.getText().toString();
     }
 }
