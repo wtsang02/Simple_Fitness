@@ -16,8 +16,8 @@ import static com.google.android.gms.analytics.internal.zzy.m;
 /**
  * Created by wtsang01 on 9/3/2016.
  */
-
 public class WTStaleLocationNotifier extends WTNotifier{
+
 
     protected static final float STALE_LOCATION_THRESHOLD= 10F;
     private static final String TAG =  WTStaleLocationNotifier.class.getSimpleName();

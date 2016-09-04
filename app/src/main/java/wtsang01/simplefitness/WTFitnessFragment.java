@@ -3,10 +3,10 @@ package wtsang01.simplefitness;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.text.Html;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,13 +14,14 @@ import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.util.List;
+
 import wtsang01.simplefitness.data.WTUserDAO;
 import wtsang01.simplefitness.process.WTFitnessLocationService;
-import wtsang01.simplefitness.view.WTLeaderBoard;
+import wtsang01.simplefitness.viewwrapper.WTLeaderBoard;
 import wtsang01.util.WTLogger;
 
-import static com.google.android.gms.analytics.internal.zzy.m;
-import static com.google.android.gms.analytics.internal.zzy.n;
+import static wtsang01.util.WTStringUtils.urlEncode;
 
 
 public class WTFitnessFragment extends Fragment {
@@ -32,6 +33,8 @@ public class WTFitnessFragment extends Fragment {
     private TextView mFitnessSummary;
     private Button mLogoutBt;
     protected WTUserDAO mUserDAO;
+    private Button mTweet;
+
     private WTLeaderBoard mLeaderBoard;
 
     private OnLogoutListener mListener;
@@ -39,8 +42,6 @@ public class WTFitnessFragment extends Fragment {
     public WTFitnessFragment() {
         // Required empty public constructor
     }
-
-
     public static WTFitnessFragment newInstance(int userID) {
         WTFitnessFragment fragment = new WTFitnessFragment();
         Bundle args = new Bundle();
@@ -58,17 +59,9 @@ public class WTFitnessFragment extends Fragment {
         mUserDAO = new WTUserDAO(getContext());
         WTLogger.l(mUserDAO.getFeetWalkToday(mUserID));
     }
-    private boolean isServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getActivity().getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
-    }
+
     public boolean isFitnessLocationServiceRunning(){
-        return isServiceRunning(WTFitnessLocationService.class);
+        return WTSimpleFitnessActivity.isFitnessLocationServiceRunning(getActivity());
     }
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -88,15 +81,34 @@ public class WTFitnessFragment extends Fragment {
                 }else{
                     WTLogger.l("STARTING SERVICE");
                     getActivity().startService(intent);
-
                 }
                 refreshServiceStatus();
             }
         });
         if(mLeaderBoard == null){
-          mLeaderBoard = new WTLeaderBoard(getContext(),(WebView) view.findViewById(R.id.wv_fitness_board));
+            mLeaderBoard = new WTLeaderBoard(getContext(),(WebView) view.findViewById(R.id.wv_fitness_board));
         }
         mFitnessSummary = (TextView) view.findViewById(R.id.tv_fitness_summary);
+        mTweet = (Button) view.findViewById(R.id.bt_twitter);
+        mTweet.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+                String tweet = "I've walked "+Float.toString(mUserDAO.getTotalDistanceInFeet(mUserID))+" feet, just for #fitness";
+                String tweetUrl = String.format("https://twitter.com/intent/tweet?text=%s",
+                        urlEncode(tweet));
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(tweetUrl));
+                List<ResolveInfo> matches = getActivity().getPackageManager().queryIntentActivities(intent, 0);
+                for (ResolveInfo info : matches) {
+                    if (info.activityInfo.packageName.toLowerCase().startsWith("com.twitter")) {
+                        intent.setPackage(info.activityInfo.packageName);
+                    }
+                }
+
+                startActivity(intent);
+            }
+        });
+
+
         mLogoutBt = (Button) view.findViewById(R.id.bt_logout);
         mLogoutBt.setText("Logout");
         mLogoutBt.setOnClickListener(new View.OnClickListener(){
@@ -111,6 +123,8 @@ public class WTFitnessFragment extends Fragment {
                 mListener.onLogout();
             }
         });
+
+
         return view;
     }
     private void refreshServiceStatus(){
@@ -148,7 +162,8 @@ public class WTFitnessFragment extends Fragment {
         if (context instanceof OnLogoutListener) {
             mListener = (OnLogoutListener) context;
         } else {
-
+            throw new RuntimeException(context.toString()
+                    + " must implement OnLogoutListener");
         }
     }
 

@@ -31,7 +31,7 @@ public class WTFitnessLocationService extends Service {
     private int mUserID;
     private WTMileStoneNotifier mNotifier;
     private float mPreviousDistance =0;
-    private static final int REQUEST_CODE=685643345;
+    public static final int REQUEST_CODE=685643345;
     private static final float LOCATION_DISTANCE = 10f;
     /**
      * This setting should really be under shared preferences, and updatable by user...
@@ -172,7 +172,7 @@ public class WTFitnessLocationService extends Service {
         firstTime += 3 * 1000;
         AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
         am.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, firstTime,
-                1000*10, getStaleLocationAlarmPendingIntent(FLAG_UPDATE_CURRENT));//10sec interval
+                1000*3600, getStaleLocationAlarmPendingIntent(FLAG_UPDATE_CURRENT));//1hr in seconds
     }
     private void unregisterStaleAlarmManager(){
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);

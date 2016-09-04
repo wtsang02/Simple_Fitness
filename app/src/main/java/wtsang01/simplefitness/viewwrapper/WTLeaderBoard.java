@@ -1,4 +1,4 @@
-package wtsang01.simplefitness.view;
+package wtsang01.simplefitness.viewwrapper;
 
 import android.content.Context;
 
@@ -12,10 +12,6 @@ import wtsang01.simplefitness.data.WTLocation;
 
 import wtsang01.simplefitness.data.WTUserDAO;
 
-import static android.R.attr.data;
-import static com.google.android.gms.analytics.internal.zzy.b;
-import static com.google.android.gms.analytics.internal.zzy.g;
-import static com.google.android.gms.analytics.internal.zzy.z;
 import static java.util.Collections.sort;
 
 
